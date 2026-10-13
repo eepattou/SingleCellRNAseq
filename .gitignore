@@ -1,0 +1,4 @@
+# jeu de donnees trop lourd pour GitHub (> 100 Mo), garde en local
+*.rda
+# graphiques generes par Rscript
+Rplots.pdf
