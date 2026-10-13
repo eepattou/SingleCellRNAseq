@@ -1,13 +1,13 @@
 # scRNAseq analysis - Cell cycle scoring tutorial
 #
-# Dataset: brain_E18_FILTERED.rda (must be in the same folder as this script).
+# Dataset: brain_E18_Filtre.rds (must be in the same folder as this script).
 # Cells from a combined cortex, hippocampus and sub ventricular zone of an E18
 # mouse:
 # https://www.10xgenomics.com/datasets/10-k-brain-cells-from-an-e-18-mouse-v-3-chemistry-3-standard-3-0-0 # nolint
 #
-# This script only covers the cell cycle scoring. It is meant to be run after
-# the preprocessing (normalization, highly variable genes, scaling, PCA,
-# clustering, UMAP).
+# This script starts from the filtered dataset produced by the preprocessing
+# (quality control, doublet removal, normalization). It computes the PCA, the
+# clusters and the UMAP, then scores the cell cycle of each cell.
 #
 # Run step by step: each '# %%' line starts a new cell (Ctrl+Enter / Cmd+Enter
 # runs the current line, select a cell to run it). Run everything: Rscript
@@ -25,45 +25,37 @@ suppressPackageStartupMessages({
 
 sample_name <- "brain_E18"
 
-# load the data, unless the preprocessing already created `sobj_filtrd`
-if (!exists("sobj_filtrd")) {
-  load(paste0(sample_name, "_FILTERED.rda"))
-}
+# filtered dataset (output of the preprocessing): Seurat object
+sobj_filtrd <- readRDS(paste0(sample_name, "_Filtre.rds"))
 
-# %% Prerequisites ---------------------------------------------------------
+# %% PCA, clusters and UMAP ------------------------------------------------
 #
-# The cell cycle scoring needs a Seurat object `sobj_filtrd` with:
-# - log-normalized data in the `RNA` assay
-# - highly variable genes (`FindVariableFeatures`)
-# - a UMAP and clusters (`FindClusters`, `RunUMAP`)
-#
-# If the preprocessing was not run before this script, the minimal steps below
-# are done here, with the parameters of the clustering course (2000 variable
-# genes, 30 PCs, resolution 0.2).
+# The filtered dataset contains the normalized data, but no dimension reduction
+# and no clusters yet. We compute them on the log-normalized `RNA` assay, with
+# the parameters of the clustering course (2000 variable genes, 30 PCs,
+# resolution 0.2).
 DefaultAssay(sobj_filtrd) <- "RNA"
 
 # number of PC kept for the analysis
-if (!exists("n_pc")) {
-  n_pc <- 30
-}
+n_pc <- 30
 
-if (!"umap" %in% Reductions(sobj_filtrd)) {
-  sobj_filtrd <- FindVariableFeatures(sobj_filtrd,
-    selection.method = "vst",
-    nfeatures = 2000, verbose = FALSE
-  )
-  sobj_filtrd <- ScaleData(sobj_filtrd, verbose = FALSE)
-  sobj_filtrd <- RunPCA(sobj_filtrd, verbose = FALSE)
-  sobj_filtrd <- FindNeighbors(sobj_filtrd, dims = 1:n_pc, verbose = FALSE)
-  sobj_filtrd <- FindClusters(sobj_filtrd, resolution = 0.2, verbose = FALSE)
-  sobj_filtrd <- RunUMAP(sobj_filtrd,
-    dims = 1:n_pc, n.neighbors = 20,
-    min.dist = 0.8, verbose = FALSE
-  )
-}
+sobj_filtrd <- FindVariableFeatures(sobj_filtrd,
+  selection.method = "vst",
+  nfeatures = 2000, verbose = FALSE
+)
+sobj_filtrd <- ScaleData(sobj_filtrd, verbose = FALSE)
+sobj_filtrd <- RunPCA(sobj_filtrd, verbose = FALSE)
+sobj_filtrd <- FindNeighbors(sobj_filtrd, dims = 1:n_pc, verbose = FALSE)
+sobj_filtrd <- FindClusters(sobj_filtrd, resolution = 0.2, verbose = FALSE)
+sobj_filtrd <- RunUMAP(sobj_filtrd,
+  dims = 1:n_pc, n.neighbors = 20,
+  min.dist = 0.8, verbose = FALSE
+)
 
-# the clusters used in this tutorial are the active identities of the object
+# number of cells per cluster
 table(Idents(sobj_filtrd))
+
+DimPlot(sobj_filtrd, reduction = "umap", label = TRUE)
 
 # %% Cell cycle scoring ----------------------------------------------------
 #
